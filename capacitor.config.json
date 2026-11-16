@@ -1,0 +1,11 @@
+{
+  "appId": "com.towerdefense.game",
+  "appName": "Tower Defense 3D",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

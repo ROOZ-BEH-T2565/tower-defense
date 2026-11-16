@@ -1,0 +1,17 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.towerdefense.game',
+  appName: 'Tower Defense 3D',
+  webDir: 'www',
+  server: {
+    // Keep the game bundled locally. Do not point this at a remote URL:
+    // local multiplayer must remain usable without internet access.
+    androidScheme: 'https'
+  },
+  ios: {
+    contentInset: 'automatic'
+  }
+};
+
+export default config;

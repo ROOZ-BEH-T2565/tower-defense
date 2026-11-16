@@ -1,0 +1,30 @@
+{
+  "name": "tower-defense-3d",
+  "version": "2.1.0",
+  "private": true,
+  "description": "3D Tower Defense with local multiplayer and Capacitor mobile builds",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "build:web": "node scripts/prepare-web.mjs",
+    "cap:sync": "npm run build:web && cap sync",
+    "android:add": "cap add android",
+    "ios:add": "cap add ios",
+    "android:open": "cap open android",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
