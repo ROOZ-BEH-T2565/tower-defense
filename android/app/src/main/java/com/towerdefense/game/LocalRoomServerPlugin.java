@@ -20,9 +20,10 @@ public class LocalRoomServerPlugin extends Plugin {
     public void startServer(PluginCall call) {
         int port = call.getInt("port", 8765);
         try {
-            if (server == null || !server.isRunning()) {
-                server = new LocalRoomWebSocketServer(port);
-                server.start();
+            if (server == null) {
+                LocalRoomWebSocketServer newServer = new LocalRoomWebSocketServer(port);
+                newServer.start();
+                server = newServer;
                 // Give the socket a moment to bind before returning success.
                 Thread.sleep(150);
             }
