@@ -6,6 +6,7 @@ import { i18n, t } from './i18n.js';
 import { wp } from './grid.js';
 import { thumb } from './thumbs.js';
 import { Save } from './save.js';
+import { isNativeAndroid, startLocalRoomServer, stopLocalRoomServer } from './local-server.js';
 const $ = id => document.getElementById(id);
 const OVERLAYS = ['menu', 'levels', 'records', 'settings', 'shop', 'howto', 'deck', 'intro', 'endless', 'lobby'];
 const fmt = v => v >= 10 ? String(Math.round(v)) : String(Math.round(v * 10) / 10);
@@ -55,10 +56,10 @@ export class UIManager {
     $('mapgrid').onclick = e => { const b = e.target.closest('button'); if (!b) return; a.play('click'); this.en.map = +b.dataset.m; this.renderEndless(); };
     on('en-start', () => this.startEndless(this.en.map, this.en.diff));
     on('m-multi', () => this.openLobby());                                                                                                              // multiplayer lobby
-    on('lb-back', () => { this.net.close(); $('lobby').classList.add('hidden'); this.show('menu'); });
-    on('lb-create', () => this.lobbyDo(() => this.net.create($('lbname').value)));
+    on('lb-back', () => { this.net.close(); stopLocalRoomServer(); $('lobby').classList.add('hidden'); this.show('menu'); });
+    on('lb-create', () => this.createLocalRoom());
     on('lb-join', () => this.lobbyDo(() => this.net.join($('lbcode').value, $('lbname').value)));
-    on('lb-leave', () => { this.net.close(); this.renderLobby(); });
+    on('lb-leave', () => { this.net.close(); stopLocalRoomServer(); this.renderLobby(); });
     on('lb-start', () => this.net.start({ map: +$('lbmap').value, diff: this.lbDiff }));
     $('seg-ldiff').onclick = e => { const b = e.target.closest('button'); if (!b) return; a.play('click'); this.lbDiff = b.dataset.v; this.renderLobby(); };
     on('overmenu', () => this.showMenu()); on('introgo', () => this.introNext());
@@ -124,9 +125,27 @@ export class UIManager {
     this.hostGame.mp = false; this.mode = null;
   }
   openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = localStorage.getItem('td_server') || location.host || 'localhost:8080'; this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
-  async lobbyDo(fn) {
+  async createLocalRoom() {
+    if (isNativeAndroid()) {
+      try {
+        this.toast('در حال راه‌اندازی سرور محلی…');
+        const info = await startLocalRoomServer();
+        const address = (info.addresses || []).find(a => !a.startsWith('127.') && !a.startsWith('169.254.'));
+        if (!address) throw new Error('No LAN IPv4 address found. Turn on the phone hotspot first.');
+        $('lbserver').value = `${address}:8765`;
+        $('lb-host-address').textContent = `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`;
+        await this.lobbyDo(() => this.net.create($('lbname').value), '127.0.0.1:8765');
+      } catch (e) {
+        console.error('Local server start failed:', e);
+        this.toast('راه‌اندازی سرور محلی ناموفق بود؛ مجوز شبکه و اتصال Wi-Fi را بررسی کنید.');
+      }
+      return;
+    }
+    await this.lobbyDo(() => this.net.create($('lbname').value));
+  }
+  async lobbyDo(fn, connectAddress = null) {
     localStorage.setItem('td_name', $('lbname').value); localStorage.setItem('td_server', $('lbserver').value);
-    if (!this.net.active) { this.toast(t('lbConnecting')); try { await this.net.connect($('lbserver').value.trim() || location.host); } catch (e) { return this.toast(t('lbFailed')); } }
+    if (!this.net.active) { this.toast(t('lbConnecting')); try { await this.net.connect(connectAddress || $('lbserver').value.trim() || location.host); } catch (e) { return this.toast(t('lbFailed')); } }
     fn();
   }
   renderLobby() {

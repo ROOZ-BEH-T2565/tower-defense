@@ -11,7 +11,8 @@
     "android:add": "cap add android",
     "ios:add": "cap add ios",
     "android:open": "cap open android",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "apk": "node scripts/build-apk.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
