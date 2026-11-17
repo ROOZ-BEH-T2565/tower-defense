@@ -23,9 +23,13 @@ public class LocalRoomServerPlugin extends Plugin {
             if (server == null) {
                 LocalRoomWebSocketServer newServer = new LocalRoomWebSocketServer(port);
                 newServer.start();
+                // Wait for WebSocketServer.onStart so JavaScript does not race
+                // the socket bind and attempt to connect too early.
+                if (!newServer.awaitStarted(5000)) {
+                    try { newServer.stop(250); } catch (Exception ignored) { }
+                    throw new IllegalStateException("Local WebSocket server did not start on port " + port);
+                }
                 server = newServer;
-                // Give the socket a moment to bind before returning success.
-                Thread.sleep(150);
             }
             com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
             result.put("port", port);

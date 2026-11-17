@@ -130,14 +130,19 @@ export class UIManager {
       try {
         this.toast('در حال راه‌اندازی سرور محلی…');
         const info = await startLocalRoomServer();
-        const address = (info.addresses || []).find(a => !a.startsWith('127.') && !a.startsWith('169.254.'));
-        if (!address) throw new Error('No LAN IPv4 address found. Turn on the phone hotspot first.');
-        $('lbserver').value = `${address}:8765`;
-        $('lb-host-address').textContent = `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`;
+        const address = (info?.addresses || []).find(a => !a.startsWith('127.') && !a.startsWith('169.254.'));
+        // The host always connects to its own server through loopback. A missing
+        // Wi-Fi IPv4 address must not prevent the room from being created.
+        $('lbserver').value = address ? `${address}:8765` : '127.0.0.1:8765';
+        $('lb-host-address').textContent = address
+          ? `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`
+          : 'سرور روی گوشی اجرا شد، اما IP شبکه پیدا نشد. هات‌اسپات را روشن کنید و دوباره بررسی کنید.';
         await this.lobbyDo(() => this.net.create($('lbname').value), '127.0.0.1:8765');
       } catch (e) {
         console.error('Local server start failed:', e);
-        this.toast('راه‌اندازی سرور محلی ناموفق بود؛ مجوز شبکه و اتصال Wi-Fi را بررسی کنید.');
+        const detail = String(e?.message || e || 'Unknown error');
+        $('lb-host-address').textContent = `خطای سرور محلی: ${detail}`;
+        this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
       }
       return;
     }
@@ -145,7 +150,16 @@ export class UIManager {
   }
   async lobbyDo(fn, connectAddress = null) {
     localStorage.setItem('td_name', $('lbname').value); localStorage.setItem('td_server', $('lbserver').value);
-    if (!this.net.active) { this.toast(t('lbConnecting')); try { await this.net.connect(connectAddress || $('lbserver').value.trim() || location.host); } catch (e) { return this.toast(t('lbFailed')); } }
+    if (!this.net.active) {
+      this.toast(t('lbConnecting'));
+      try { await this.net.connect(connectAddress || $('lbserver').value.trim() || location.host); }
+      catch (e) {
+        console.error('Lobby WebSocket connection failed:', e);
+        const detail = String(e?.message || e || 'Connection failed');
+        $('lb-host-address').textContent = `خطای اتصال به سرور: ${detail}`;
+        return this.toast(`${t('lbFailed')} (${detail})`);
+      }
+    }
     fn();
   }
   renderLobby() {

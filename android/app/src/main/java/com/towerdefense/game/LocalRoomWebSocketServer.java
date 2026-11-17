@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class LocalRoomWebSocketServer extends WebSocketServer {
     private static final int MAX_PLAYERS = 4;
@@ -20,6 +22,7 @@ public class LocalRoomWebSocketServer extends WebSocketServer {
     private final Map<String, Room> rooms = new HashMap<>();
     private final Map<WebSocket, Client> clients = new HashMap<>();
     private final SecureRandom random = new SecureRandom();
+    private final CountDownLatch startedLatch = new CountDownLatch(1);
 
     static class Client {
         WebSocket socket; Room room; int id = -1; String name = "Player";
@@ -102,7 +105,9 @@ public class LocalRoomWebSocketServer extends WebSocketServer {
         Client c = clients.remove(conn); if (c != null) leave(c);
     }
     @Override public void onError(WebSocket conn, Exception ex) { Log.w("LocalRoomServer", "WebSocket error", ex); }
-    @Override public void onStart() { Log.i("LocalRoomServer", "LAN WebSocket server started on " + getPort()); }
+    public boolean awaitStarted(long timeoutMs) throws InterruptedException { return startedLatch.await(timeoutMs, TimeUnit.MILLISECONDS); }
+
+    @Override public void onStart() { Log.i("LocalRoomServer", "LAN WebSocket server started on " + getPort()); startedLatch.countDown(); }
 
     private void leave(Client c) {
         Room r = c.room; if (r == null) return;
