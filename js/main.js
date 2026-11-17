@@ -6,6 +6,12 @@ import { AudioManager } from './audio.js';
 import { Game } from './game.js';
 import { UIManager } from './ui.js';
 import { RemoteGame } from './net.js';
+import { i18n } from './i18n.js';
+
+// Apply menu translations before creating WebGL. If graphics initialization fails,
+// the user can still read the menu and the startup diagnostic remains visible.
+i18n.apply();
+
 const sc = new Scene3D(document.getElementById('view'));
 const grid = new Grid(sc.scene), audio = new AudioManager(), game = new Game(sc, grid, audio), ui = new UIManager(game, audio, sc);
 const remote = new RemoteGame(sc, grid, audio); // multiplayer client view (the host uses the normal Game)

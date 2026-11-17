@@ -118,6 +118,30 @@
   <div id="introimg"></div><h2 id="introT"></h2><p id="introD"></p><div id="introdots"></div>
   <button class="big" id="introgo"></button>
 </div></div>
+<script>
+// Show startup failures on-screen instead of leaving a blank, unresponsive menu.
+(function () {
+  function report(title, detail) {
+    let box = document.getElementById('startup-error');
+    if (!box) {
+      box = document.createElement('pre');
+      box.id = 'startup-error';
+      box.style.cssText = 'position:fixed;z-index:99999;inset:auto 10px 10px 10px;max-height:42vh;overflow:auto;white-space:pre-wrap;direction:ltr;text-align:left;background:#2b1010;color:#fff;border:2px solid #ff6b6b;border-radius:10px;padding:12px;font:12px/1.5 monospace;user-select:text;';
+      document.body.appendChild(box);
+    }
+    box.textContent = title + '\n' + String(detail || 'No additional details');
+  }
+  window.addEventListener('error', function (event) {
+    const target = event.target;
+    const resource = target && (target.src || target.href);
+    report('APP STARTUP ERROR', event.message || (resource ? 'Failed to load: ' + resource : 'Unknown JavaScript error') + (event.filename ? '\n' + event.filename + ':' + event.lineno : ''));
+  }, true);
+  window.addEventListener('unhandledrejection', function (event) {
+    const reason = event.reason;
+    report('APP PROMISE ERROR', reason && (reason.stack || reason.message) || reason);
+  });
+})();
+</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
