@@ -125,31 +125,62 @@ export class UIManager {
     this.hostGame.mp = false; this.mode = null;
   }
   openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = localStorage.getItem('td_server') || location.host || 'localhost:8080'; this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
-  async createLocalRoom() {
-    if (isNativeAndroid()) {
-      try {
-        this.toast('در حال راه‌اندازی سرور محلی…');
-        const info = await startLocalRoomServer();
-        const address = (info?.addresses || []).find(a => !a.startsWith('127.') && !a.startsWith('169.254.'));
-        // The host always connects to its own server through loopback. A missing
-        // Wi-Fi IPv4 address must not prevent the room from being created.
-        $('lbserver').value = address ? `${address}:8765` : '127.0.0.1:8765';
-        const addressInfo = $('lb-host-address');
-        if (addressInfo) addressInfo.textContent = address
+  
+async createLocalRoom() {
+  if (isNativeAndroid()) {
+    try {
+      this.toast('در حال راه‌اندازی سرور محلی…');
+
+      const info = await startLocalRoomServer();
+
+      console.log('Local server response:', info);
+
+      // فقط زمانی از find استفاده می‌کنیم که addresses واقعاً آرایه باشد.
+      const addresses = Array.isArray(info?.addresses)
+        ? info.addresses
+        : [];
+
+      const address = addresses.find(
+        a => typeof a === 'string' &&
+          !a.startsWith('127.') &&
+          !a.startsWith('169.254.')
+      );
+
+      // اتصال گوشی میزبان همیشه از طریق localhost انجام می‌شود.
+      $('lbserver').value = '127.0.0.1:8765';
+
+      const hostLabel = $('lb-host-address');
+
+      if (hostLabel) {
+        hostLabel.textContent = address
           ? `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`
-          : 'سرور روی گوشی اجرا شد، اما IP شبکه پیدا نشد. هات‌اسپات را روشن کنید و دوباره بررسی کنید.';
-        await this.lobbyDo(() => this.net.create($('lbname').value), '127.0.0.1:8765');
-      } catch (e) {
-        console.error('Local server start failed:', e);
-        const detail = String(e?.message || e || 'Unknown error');
-        const addressInfo = $('lb-host-address');
-        if (addressInfo) addressInfo.textContent = `خطای سرور محلی: ${detail}`;
-        this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
+          : 'سرور محلی اجرا شد. برای اتصال بازیکنان دیگر باید IP شبکه گوشی مشخص شود.';
       }
-      return;
+
+      await this.lobbyDo(
+        () => this.net.create($('lbname').value),
+        '127.0.0.1:8765'
+      );
+
+    } catch (e) {
+      console.error('Local server start failed:', e);
+
+      const detail = String(e?.message || e || 'Unknown error');
+      const hostLabel = $('lb-host-address');
+
+      if (hostLabel) {
+        hostLabel.textContent = `خطای سرور محلی: ${detail}`;
+      }
+
+      this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
     }
-    await this.lobbyDo(() => this.net.create($('lbname').value));
+
+    return;
   }
+
+  await this.lobbyDo(() => this.net.create($('lbname').value));
+}
+
   async lobbyDo(fn, connectAddress = null) {
     localStorage.setItem('td_name', $('lbname').value); localStorage.setItem('td_server', $('lbserver').value);
     if (!this.net.active) {
