@@ -134,14 +134,16 @@ export class UIManager {
         // The host always connects to its own server through loopback. A missing
         // Wi-Fi IPv4 address must not prevent the room from being created.
         $('lbserver').value = address ? `${address}:8765` : '127.0.0.1:8765';
-        $('lb-host-address').textContent = address
+        const addressInfo = $('lb-host-address');
+        if (addressInfo) addressInfo.textContent = address
           ? `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`
           : 'سرور روی گوشی اجرا شد، اما IP شبکه پیدا نشد. هات‌اسپات را روشن کنید و دوباره بررسی کنید.';
         await this.lobbyDo(() => this.net.create($('lbname').value), '127.0.0.1:8765');
       } catch (e) {
         console.error('Local server start failed:', e);
         const detail = String(e?.message || e || 'Unknown error');
-        $('lb-host-address').textContent = `خطای سرور محلی: ${detail}`;
+        const addressInfo = $('lb-host-address');
+        if (addressInfo) addressInfo.textContent = `خطای سرور محلی: ${detail}`;
         this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
       }
       return;
