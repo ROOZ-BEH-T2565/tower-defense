@@ -186,6 +186,7 @@ async createLocalRoom() {
   async lobbyDo(fn, connectAddress = null) {
     const native = isNativeAndroid();
     const isHostLocal = !!connectAddress;                      // host connecting to its own in-app server
+    let target = connectAddress;
     if (!isHostLocal) {
       const addr = this.normalizeAddr($('lbserver').value, native);
       $('lbserver').value = addr;
@@ -194,12 +195,14 @@ async createLocalRoom() {
         return this.toast(t('lbBadAddr'));
       }
       localStorage.setItem('td_server', addr);                 // never store the host's own 127.0.0.1 address
+      target = addr;
     }
     localStorage.setItem('td_name', $('lbname').value);
     this.setConnStatus('');
+    if (isHostLocal && this.net.active) this.net.close();
     if (!this.net.active) {
       this.toast(t('lbConnecting'));
-      try { await this.net.connect(connectAddress || this.normalizeAddr($('lbserver').value, native) || location.host); }
+      try { await this.net.connect(target || this.normalizeAddr($('lbserver').value, native) || location.host); }
       catch (e) {
         console.error('Lobby WebSocket connection failed:', e);
         const detail = String(e?.message || e || 'Connection failed');
@@ -229,7 +232,10 @@ async createLocalRoom() {
   netLeft(id) { this.toast('👋 ' + t('lbLeft')); this.hud(); }
   netError(msg) { this.toast(t({ noroom: 'lbNoRoom', started: 'lbStarted', full: 'lbFull' }[msg] || 'lbFailed')); }
   netClosed(reason) {
-    const wasMp = this.mode === 'mp', inLobby = !$('lobby').classList.contains('hidden'); this.net.close();
+    const wasMp = this.mode === 'mp', inLobby = !$('lobby').classList.contains('hidden');
+    const hadSession = wasMp || inLobby || this.net.role || this.net.active || this.net.code;
+    if (!hadSession) return;
+    this.net.close();
     if (wasMp || inLobby) this.toast(t(reason === 'host' ? 'lbClosed' : 'lbLost'));
     if (wasMp) this.showMenu(); else this.renderLobby();
   }

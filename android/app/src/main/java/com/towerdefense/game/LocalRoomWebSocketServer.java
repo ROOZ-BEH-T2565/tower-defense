@@ -17,7 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class LocalRoomWebSocketServer extends WebSocketServer {
-    private static final int MAX_PLAYERS = 4;
+    private static final int MAX_PLAYERS = 3;
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
     private final Map<String, Room> rooms = new HashMap<>();
     private final Map<WebSocket, Client> clients = new HashMap<>();

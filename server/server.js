@@ -1,7 +1,7 @@
-// Zero-dependency server: serves the game files AND relays WebSocket messages for LAN multiplayer (2-4 players).
+// Zero-dependency server: serves the game files AND relays WebSocket messages for LAN multiplayer (2-3 players).
 // Run:  node server/server.js   then open http://<this-computer-ip>:8080 on every device in the same network.
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os');
-const ROOT = path.join(__dirname, '..'), PORT = +process.env.PORT || 8080, MAX_PLAYERS = 4;
+const ROOT = path.join(__dirname, '..'), PORT = +process.env.PORT || 8080, MAX_PLAYERS = 3;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
 
 // ---------- static files ----------

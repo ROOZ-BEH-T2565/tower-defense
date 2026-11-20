@@ -16,7 +16,7 @@ An internet connection is needed once for Three.js and the Vazirmatn font (CDN).
 ## Game modes / حالت‌ها
 * **Campaign** – 6 chapters, 19 stages, each with its own map, enemies and unlocks (stage 1 teaches the basics, cannon only).
 * **Endless** – every tower, spell and enemy is available; Easy / Normal / Hard; best wave is stored per difficulty.
-* **Multiplayer (co-op, 2-4 players)** – same map, one shared base and gold treasury, anyone can build/upgrade/sell/cast.
+* **Multiplayer (co-op, 2-3 players)** – same map, one shared base and gold treasury, anyone can build/upgrade/sell/cast.
 
 ## Multiplayer how-to / چندنفره
 1. One computer runs `node server/server.js` (the host machine).

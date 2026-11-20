@@ -1,4 +1,4 @@
-// Multiplayer (co-op, 2-4 players over a LAN / Wi-Fi / hotspot through server/server.js).
+// Multiplayer (co-op, 2-3 players over a LAN / Wi-Fi / hotspot through server/server.js).
 //  Net        - WebSocket connection + lobby messages
 //  NetHost    - the host runs the normal Game; it applies the players' commands and broadcasts snapshots (15/s)
 //  RemoteGame - clients run no simulation: they mirror the host's snapshots with the same 3D objects and send commands
@@ -32,7 +32,16 @@ export class Net {
   join(code, name) { this.send({ t: 'join', code, name }); }
   start(cfg) { this.send({ t: 'start', cfg }); }
   cmd(d) { this.send({ t: 'cmd', d }); }
-  close() { this.detachHost(); const ws = this.ws; this.ws = null; this.role = null; this.code = ''; this.players = []; try { ws && ws.close(); } catch (e) { /* ignore */ } }
+  close() {
+    this.detachHost();
+    const ws = this.ws;
+    this.ws = null;
+    this.role = null;
+    this.id = -1;
+    this.code = '';
+    this.players = [];
+    try { if (ws && (ws.readyState === 0 || ws.readyState === 1)) ws.close(); } catch (e) { /* ignore */ }
+  }
   detachHost() { if (this.host) { this.host.detach(); this.host = null; } }
   recv(m) {
     switch (m.t) {
