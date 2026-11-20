@@ -5,11 +5,11 @@ function getCapacitor() {
   return globalThis.Capacitor || null;
 }
 
-async function getLocalRoomServer() {
-  if (localRoomServer) return localRoomServer;
+async function ensureLocalRoomServer() {
+  if (localRoomServer) return;
   const { registerPlugin } = await import('@capacitor/core');
+  // Capacitor plugin proxies are thenable-like in this runtime; never return/resolve them from async functions.
   localRoomServer = registerPlugin('LocalRoomServer');
-  return localRoomServer;
 }
 
 export function isNativeAndroid() {
@@ -18,15 +18,15 @@ export function isNativeAndroid() {
 
 export async function startLocalRoomServer() {
   if (!isNativeAndroid()) return null;
-  const plugin = await getLocalRoomServer();
-  return plugin.startServer({ port: 8765 });
+  await ensureLocalRoomServer();
+  return localRoomServer.startServer({ port: 8765 });
 }
 
 export async function stopLocalRoomServer() {
   if (!isNativeAndroid()) return;
   try {
-    const plugin = await getLocalRoomServer();
-    await plugin.stopServer();
+    await ensureLocalRoomServer();
+    await localRoomServer.stopServer();
   } catch (e) {
     console.warn('Could not stop local room server', e);
   }

@@ -119,3 +119,35 @@
 - ظرفیت اتاق عمداً برای تطابق با الزام گزارش‌شده به ۳ نفر محدود شد (قبلاً در کد/برخی متون ۴ نفر بود).
 - فایل‌های تولیدی وب/اندروید پس از تغییرات سورس بازسازی/همگام‌سازی شدند؛ برای بسته‌بندی نهایی APK لازم است ساخت در محیطی با JDK مناسب انجام شود.
 - تغییرات محدود به رفع مشکلات مولتی‌پلیر/اتصال و موارد وابسته بوده و مکانیک‌ها/محتوای اصلی بازی حذف یا بازنویسی نشده‌اند.
+
+------------------------------------------------------------
+متمم گزارش رفع خطا (گزارش جدید)
+تاریخ: 2026-11-20
+
+خطای گزارش‌شده هنگام ساخت اتاق (Android/Capacitor WebView)
+- پیام خطا: APP PROMISE ERROR
+  Error: "LocalRoomServer.then()" is not implemented on android
+  (در vendor/capacitor-core/dist/index.js)
+
+علت ریشه‌ای
+- در پیاده‌سازی جدید js/local-server.js، تابع async با نام getLocalRoomServer مقدار proxy پلاگین (registerPlugin('LocalRoomServer')) را مستقیماً return می‌کرد.
+- در بسته Capacitor Core استفاده‌شده، proxy پلاگین برای هر دسترسی property (از جمله then) یک wrapper متد پل می‌سازد؛ بنابراین proxy رفتاری thenable دارد.
+- در سازوکار Promise/async، بازگرداندن یک thenable از تابع async باعث می‌شود Promise نتیجه، آن thenable را «assimilation» کند و متد then آن فراخوانی شود. در نتیجه پل Capacitor تلاش می‌کند متد native با نام "then" را روی پلاگین LocalRoomServer اجرا کند که پیاده‌سازی نشده است و خطای بالا رخ می‌دهد.
+
+اقدام اصلاحی
+- بازنویسی js/local-server.js به‌گونه‌ای که هیچ تابع async شیء proxy پلاگین را return/resolve نکند:
+  - افزودن ensureLocalRoomServer() (async) برای import/register تنبل و ذخیره پلاگین در متغیر ماژولی، بدون برگرداندن proxy.
+  - startLocalRoomServer() و stopLocalRoomServer() پس از await ensureLocalRoomServer() مستقیماً از localRoomServer.startServer/stopServer استفاده می‌کنند.
+  - افزودن توضیح کوتاه در کد درباره عدم بازگرداندن proxy از توابع async.
+
+فایل‌های تغییر یافته در این اصلاح
+- js/local-server.js
+- خروجی‌های بازتولید/همگام‌سازی‌شده: www/js/local-server.js ، android/app/src/main/assets/public/js/local-server.js (از طریق npm run build:web و npx --no-install cap sync android)
+
+اعتبارسنجی این اصلاح
+- npm run build:web : موفق
+- npx --no-install cap sync android : موفق
+- تست اجرای واقعی روی دستگاه اندروید در این محیط انجام نشد (نیاز به نصب APK به‌روزشده روی دستگاه).
+
+نکته مهم برای اعمال اصلاح روی دستگاه
+- برای رفع خطا در اپ نصب‌شده، باید APK جدیدی با دارایی‌های وب/کد به‌روزشده ساخته و مجدداً نصب شود (یا در صورت استفاده از جریان توسعه، سینک/بیلد مجدد انجام گیرد). ساخت APK در این محیط همچنان به JDK 11+ نیاز دارد.
