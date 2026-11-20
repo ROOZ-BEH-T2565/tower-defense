@@ -124,7 +124,7 @@ export class UIManager {
     if (this.game !== this.hostGame) { this.useGame(this.hostGame); this.hostGame.start(0, ['cannon']); }
     this.hostGame.mp = false; this.mode = null;
   }
-  openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = localStorage.getItem('td_server') || location.host || 'localhost:8080'; this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
+  openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = this.defaultServerAddr(); this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
   
 async createLocalRoom() {
   if (isNativeAndroid()) {
@@ -135,26 +135,15 @@ async createLocalRoom() {
 
       console.log('Local server response:', info);
 
-      // فقط زمانی از find استفاده می‌کنیم که addresses واقعاً آرایه باشد.
-      const addresses = Array.isArray(info?.addresses)
-        ? info.addresses
-        : [];
-
-      const address = addresses.find(
-        a => typeof a === 'string' &&
-          !a.startsWith('127.') &&
-          !a.startsWith('169.254.')
-      );
-
-      // اتصال گوشی میزبان همیشه از طریق localhost انجام می‌شود.
-      $('lbserver').value = '127.0.0.1:8765';
+      const addresses = (Array.isArray(info?.addresses) ? info.addresses : [])
+        .filter(a => typeof a === 'string' && !a.startsWith('127.') && !a.startsWith('169.254.'));
 
       const hostLabel = $('lb-host-address');
 
       if (hostLabel) {
-        hostLabel.textContent = address
-          ? `آدرس اتصال برای بازیکنان دیگر: ${address}:8765`
-          : 'سرور محلی اجرا شد. برای اتصال بازیکنان دیگر باید IP شبکه گوشی مشخص شود.';
+        hostLabel.textContent = addresses.length
+          ? `آدرس برای بازیکنان دیگر (در کادر «آدرس سرور» بنویسند): ${addresses.map(a => a + ':8765').join('  یا  ')}`
+          : 'سرور محلی اجرا شد، اما IP شبکه پیدا نشد. هات‌اسپات یا Wi-Fi را روشن کن و دوباره امتحان کن.';
       }
 
       await this.lobbyDo(
@@ -181,15 +170,40 @@ async createLocalRoom() {
   await this.lobbyDo(() => this.net.create($('lbname').value));
 }
 
+  // ---- server-address helpers (the guest must type the HOST phone's IP, never localhost)
+  isLoopback(a) { return /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?)/i.test(a); }
+  normalizeAddr(raw, native) {
+    let a = String(raw || '').trim().replace(/^[a-z]+:\/\//i, '').replace(/\/.*$/, '').replace(/\s+/g, '');
+    if (native && a && !/:\d+$/.test(a)) a += ':8765';      // the in-app server always listens on 8765
+    return a;
+  }
+  defaultServerAddr() {
+    const saved = localStorage.getItem('td_server') || '';
+    if (isNativeAndroid()) return saved && !this.isLoopback(saved) ? saved : '';   // inside the APK location.host is just "localhost"
+    return saved || location.host || 'localhost:8080';
+  }
+  setConnStatus(text) { const el = $('lb-conn-status'); if (el) el.textContent = text || ''; }
   async lobbyDo(fn, connectAddress = null) {
-    localStorage.setItem('td_name', $('lbname').value); localStorage.setItem('td_server', $('lbserver').value);
+    const native = isNativeAndroid();
+    const isHostLocal = !!connectAddress;                      // host connecting to its own in-app server
+    if (!isHostLocal) {
+      const addr = this.normalizeAddr($('lbserver').value, native);
+      $('lbserver').value = addr;
+      if (native && (!addr || this.isLoopback(addr))) {        // guest left it empty / typed 127.0.0.1 / localhost: that is THIS phone
+        this.setConnStatus('آدرس سرور را از گوشی میزبان بگیر (مثلاً 192.168.43.1:8765) و در کادر «آدرس سرور» بنویس. localhost و 127.0.0.1 فقط برای خود گوشی میزبان است.');
+        return this.toast(t('lbBadAddr'));
+      }
+      localStorage.setItem('td_server', addr);                 // never store the host's own 127.0.0.1 address
+    }
+    localStorage.setItem('td_name', $('lbname').value);
+    this.setConnStatus('');
     if (!this.net.active) {
       this.toast(t('lbConnecting'));
-      try { await this.net.connect(connectAddress || $('lbserver').value.trim() || location.host); }
+      try { await this.net.connect(connectAddress || this.normalizeAddr($('lbserver').value, native) || location.host); }
       catch (e) {
         console.error('Lobby WebSocket connection failed:', e);
         const detail = String(e?.message || e || 'Connection failed');
-        $('lb-host-address').textContent = `خطای اتصال به سرور: ${detail}`;
+        this.setConnStatus(`خطای اتصال به سرور: ${detail}`);
         return this.toast(`${t('lbFailed')} (${detail})`);
       }
     }

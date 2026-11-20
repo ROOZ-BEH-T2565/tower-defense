@@ -23,6 +23,8 @@ public class LocalRoomWebSocketServer extends WebSocketServer {
     private final Map<WebSocket, Client> clients = new HashMap<>();
     private final SecureRandom random = new SecureRandom();
     private final CountDownLatch startedLatch = new CountDownLatch(1);
+    // Java-WebSocket invokes callbacks from several worker threads; every access to rooms/clients goes through this lock.
+    private final Object lock = new Object();
 
     static class Client {
         WebSocket socket; Room room; int id = -1; String name = "Player";
@@ -39,13 +41,23 @@ public class LocalRoomWebSocketServer extends WebSocketServer {
     }
 
     @Override public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        clients.put(conn, new Client(conn));
+        synchronized (lock) { clients.put(conn, new Client(conn)); }
     }
 
     @Override public void onMessage(WebSocket conn, String message) {
+        synchronized (lock) { handleMessage(conn, message); }
+    }
+
+    private void handleMessage(WebSocket conn, String message) {
         Client c = clients.get(conn);
         if (c == null) return;
         try {
+            // fast path: host snapshots are relayed verbatim without parsing (15 per second)
+            if (message.startsWith("{\"t\":\"s\"")) {
+                Room sr = c.room;
+                if (sr != null && c.id == 0) broadcastExcept(sr, conn, message);
+                return;
+            }
             JSONObject m = new JSONObject(message);
             String type = m.optString("t", "");
             switch (type) {
@@ -102,7 +114,7 @@ public class LocalRoomWebSocketServer extends WebSocketServer {
     }
 
     @Override public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        Client c = clients.remove(conn); if (c != null) leave(c);
+        synchronized (lock) { Client c = clients.remove(conn); if (c != null) leave(c); }
     }
     @Override public void onError(WebSocket conn, Exception ex) { Log.w("LocalRoomServer", "WebSocket error", ex); }
     public boolean awaitStarted(long timeoutMs) throws InterruptedException { return startedLatch.await(timeoutMs, TimeUnit.MILLISECONDS); }

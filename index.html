@@ -61,8 +61,9 @@
     <div id="lbconn">
       <p data-i18n="coopNote"></p>
       <div class="opt"><span data-i18n="lbName"></span><input type="text" id="lbname" maxlength="14"></div>
-      <div class="opt"><span data-i18n="lbServer"></span><input type="text" id="lbserver" dir="ltr"></div>
+      <div class="opt"><span data-i18n="lbServer"></span><input type="text" id="lbserver" dir="ltr" placeholder="192.168.43.1:8765" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
       <p class="hint" data-i18n="lbHint"></p><p class="hint">در اندروید، میزبان با «ساخت اتاق» سرور را روی گوشی خود روشن می‌کند. آدرس نمایش‌داده‌شده را بازیکنان دیگر در کادر سرور وارد کنند؛ همه باید به یک هات‌اسپات متصل باشند.</p>
+      <p class="hint" id="lb-conn-status"></p>
       <button class="big" id="lb-create" data-i18n="lbCreate"></button>
       <div class="opt"><input type="text" id="lbcode" maxlength="4" placeholder="ABCD" dir="ltr"><button id="lb-join" data-i18n="lbJoin"></button></div>
     </div>
@@ -142,7 +143,6 @@
   });
 })();
 </script>
-<script src="js/room-debug.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
