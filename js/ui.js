@@ -203,7 +203,7 @@ async createLocalRoom() {
       catch (e) {
         console.error('Lobby WebSocket connection failed:', e);
         const detail = String(e?.message || e || 'Connection failed');
-        this.setConnStatus(`خطای اتصال به سرور: ${detail}`);
+        this.setConnStatus(`اتصال برقرار نشد (${detail}). IP و پورت، یکسان بودن شبکه و روشن بودن سرور میزبان را بررسی کن.`);
         return this.toast(`${t('lbFailed')} (${detail})`);
       }
     }

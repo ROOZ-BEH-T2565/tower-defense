@@ -16,12 +16,15 @@ export class Net {
   get active() { return !!this.ws && this.ws.readyState === 1; }
   connect(addr) {
     return new Promise((res, rej) => {
-      let ws; try { ws = new WebSocket(`ws://${addr}/ws`); } catch (e) { return rej(e); }
-      const timer = setTimeout(() => { try { ws.close(); } catch (e) { /* ignore */ } rej(new Error('timeout')); }, 5000);
-      ws.onopen = () => { clearTimeout(timer); this.ws = ws; res(); };
-      ws.onerror = () => { clearTimeout(timer); rej(new Error('connect')); };
-      ws.onmessage = e => { try { this.recv(JSON.parse(e.data)); } catch (err) { console.error(err); } };
-      ws.onclose = () => { if (this.ws === ws) { this.ws = null; this.ui.netClosed('lost'); } };
+      let ws; let settled = false;
+      const endpoint = `ws://${String(addr).replace(/^\s+|\s+$/g, '').replace(/^ws:\/*/i, '').replace(/^http:\/*/i, '').replace(/^https:\/*/i, '')}/ws`;
+      try { ws = new WebSocket(endpoint); } catch (e) { return rej(e); }
+      const finish = (ok, value) => { if (settled) return; settled = true; clearTimeout(timer); ok ? res(value) : rej(value); };
+      const timer = setTimeout(() => { try { ws.close(); } catch (_) {} finish(false, new Error('timeout')); }, 12000);
+      ws.onopen = () => { this.ws = ws; finish(true); };
+      ws.onerror = () => { finish(false, new Error('websocket')); };
+      ws.onmessage = e => { try { this.recv(JSON.parse(e.data)); } catch (err) { console.error('Invalid multiplayer message:', err); } };
+      ws.onclose = e => { if (!settled) finish(false, new Error(`closed-${e.code || 0}`)); if (this.ws === ws) { this.ws = null; this.ui.netClosed('lost'); } };
     });
   }
   send(o) { if (this.active) this.ws.send(JSON.stringify(o)); }
