@@ -124,51 +124,79 @@ export class UIManager {
     if (this.game !== this.hostGame) { this.useGame(this.hostGame); this.hostGame.start(0, ['cannon']); }
     this.hostGame.mp = false; this.mode = null;
   }
-  openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = this.defaultServerAddr(); this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
+  openLobby() { $('lbname').value = localStorage.getItem('td_name') || 'Player'; $('lbserver').value = this.defaultServerAddr(); this.hostShareText = ''; const hostLabel = $('lb-host-address'); if (hostLabel) hostLabel.textContent = ''; this.renderLobby(); $('menu').classList.add('hidden'); this.show('lobby'); }
   
-async createLocalRoom() {
-  if (isNativeAndroid()) {
-    try {
-      this.toast('در حال راه‌اندازی سرور محلی…');
-
-      const info = await startLocalRoomServer();
-
-      console.log('Local server response:', info);
-
-      const addresses = (Array.isArray(info?.addresses) ? info.addresses : [])
-        .filter(a => typeof a === 'string' && !a.startsWith('127.') && !a.startsWith('169.254.'));
-
-      const hostLabel = $('lb-host-address');
-
-      if (hostLabel) {
-        hostLabel.textContent = addresses.length
-          ? `آدرس برای بازیکنان دیگر (در کادر «آدرس سرور» بنویسند): ${addresses.map(a => a + ':8765').join('  یا  ')}`
-          : 'سرور محلی اجرا شد، اما IP شبکه پیدا نشد. هات‌اسپات یا Wi-Fi را روشن کن و دوباره امتحان کن.';
-      }
-
-      await this.lobbyDo(
-        () => this.net.create($('lbname').value),
-        '127.0.0.1:8765'
-      );
-
-    } catch (e) {
-      console.error('Local server start failed:', e);
-
-      const detail = String(e?.message || e || 'Unknown error');
-      const hostLabel = $('lb-host-address');
-
-      if (hostLabel) {
-        hostLabel.textContent = `خطای سرور محلی: ${detail}`;
-      }
-
-      this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
-    }
-
-    return;
+  getHostShareAddresses(info) {
+    const list = (Array.isArray(info?.addresses) ? info.addresses : [])
+      .filter(a => typeof a === 'string' && a && !/^127\./.test(a) && !/^169\.254\./.test(a));
+    return [...new Set(list)];
   }
 
-  await this.lobbyDo(() => this.net.create($('lbname').value));
-}
+  async detectHostShareAddresses() {
+    let info = null;
+    try { info = await startLocalRoomServer(); } catch (e) { console.warn('Could not read local server addresses', e); }
+    let addresses = this.getHostShareAddresses(info);
+    if (!addresses.length) {
+      try { info = await startLocalRoomServer(); addresses = this.getHostShareAddresses(info); } catch (e) { /* ignore */ }
+    }
+    return addresses;
+  }
+
+  formatHostShareText(addresses, fallback = '') {
+    if (addresses && addresses.length) {
+      return `آدرس سرور برای مهمان‌ها (این مقدار را در کادر «آدرس سرور» گوشی مهمان وارد کنید): ${addresses.map(a => a + ':8765').join('  یا  ')}`;
+    }
+    return fallback || 'IP شبکه پیدا نشد. مطمئن شوید هات‌اسپات/Wi-Fi فعال است، سپس دوباره «ساخت اتاق» را بزنید یا IP گوشی میزبان را دستی بررسی کنید.';
+  }
+
+  setHostShareInfo(text) {
+    this.hostShareText = text || '';
+    const hostLabel = $('lb-host-address');
+    if (hostLabel) hostLabel.textContent = this.hostShareText;
+  }
+
+  async createLocalRoom() {
+    if (isNativeAndroid()) {
+      try {
+        this.setHostShareInfo('');
+        this.toast('در حال راه‌اندازی سرور محلی…');
+
+        const info = await startLocalRoomServer();
+        console.log('Local server response:', info);
+        let addresses = this.getHostShareAddresses(info);
+        if (!addresses.length) addresses = await this.detectHostShareAddresses();
+        this.setHostShareInfo(this.formatHostShareText(addresses));
+
+        await this.lobbyDo(
+          () => this.net.create($('lbname').value),
+          '127.0.0.1:8765'
+        );
+
+        // Refresh again after room creation in case network/hotspot IP became available late.
+        const later = await this.detectHostShareAddresses();
+        if (later.length) this.setHostShareInfo(this.formatHostShareText(later));
+        else if (!addresses.length) {
+          setTimeout(async () => {
+            if (this.net.role === 'host' && isNativeAndroid()) {
+              const retry = await this.detectHostShareAddresses();
+              if (retry.length) this.setHostShareInfo(this.formatHostShareText(retry));
+            }
+          }, 2500);
+        }
+
+      } catch (e) {
+        console.error('Local server start failed:', e);
+        const detail = String(e?.message || e || 'Unknown error');
+        this.setHostShareInfo(`خطای سرور محلی: ${detail}`);
+        this.toast(`ساخت اتاق ناموفق بود: ${detail}`);
+      }
+
+      return;
+    }
+
+    this.hostShareText = '';
+    await this.lobbyDo(() => this.net.create($('lbname').value));
+  }
 
   // ---- server-address helpers (the guest must type the HOST phone's IP, never localhost)
   isLoopback(a) { return /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?)/i.test(a); }
@@ -215,6 +243,18 @@ async createLocalRoom() {
   renderLobby() {
     const n = this.net, inRoom = !!n.role; $('lbconn').classList.toggle('hidden', inRoom); $('lbroom').classList.toggle('hidden', !inRoom); if (!inRoom) return;
     $('lbcodeshow').textContent = n.code;
+    const hostLabel = $('lb-host-address');
+    if (hostLabel) {
+      if (n.role === 'host') {
+        if (isNativeAndroid() && this.hostShareText) hostLabel.textContent = this.hostShareText;
+        else if (!isNativeAndroid() && !hostLabel.textContent) {
+          const addr = location.host || '';
+          hostLabel.textContent = addr ? `آدرس سرور برای بازیکنان دیگر: ${addr}` : '';
+        }
+      } else {
+        hostLabel.textContent = '';
+      }
+    }
     $('lbplayers').innerHTML = n.players.map(p => `<div class="gi"><b style="color:#${PLAYER_COLORS[p.id % 4].toString(16).padStart(6, '0')}">●</b> <b>${p.name}</b> ${p.id === 0 ? '👑 ' + t('lbHost') : ''} ${p.id === n.id ? '(' + t('lbYou') + ')' : ''}</div>`).join('');
     $('lbhost').classList.toggle('hidden', n.role !== 'host'); $('lbwait').classList.toggle('hidden', n.role === 'host');
     if (n.role === 'host') {
